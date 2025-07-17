@@ -2,22 +2,46 @@ import pyttsx3
 import speech_recognition as sr
 import threading
 import re
+import tkinter as tk
+from tkinter import messagebox
 
 _detener_voz = False
 _hilo_voz = None
 
-
 def iniciar_motor_voz():
     """
-    Retorna una nueva instancia del motor TTS configurado en español.
+    Retorna una nueva instancia del motor TTS configurado para usar Microsoft Helena.
+    Si no encuentra 'Helena', avisa al usuario y cae a una voz genérica en español.
     """
     engine = pyttsx3.init()
-    for voz in engine.getProperty('voices'):
-        if 'spanish' in voz.name.lower():
-            engine.setProperty('voice', voz.id)
-            break
-    return engine
+    voices = engine.getProperty('voices')
 
+    # Intentamos la voz Helena
+    helena = next((v for v in voices if 'helena' in v.name.lower()), None)
+    if helena:
+        engine.setProperty('voice', helena.id)
+    else:
+        # Mensaje en consola
+        print("[WARNING] La voz 'Microsoft Helena' no está instalada.")
+        # Mensaje GUI si hay un root de tkinter
+        try:
+            root = tk._default_root or tk.Tk()
+            root.withdraw()
+            messagebox.showwarning(
+                "Voz no encontrada",
+                ("La voz 'Microsoft Helena' no está instalada en tu sistema.\n"
+                 "Por favor ve a Configuración de Windows → Hora e idioma → Voz → "
+                 "Agregar voces y busca 'Helena' en español.")
+            )
+        except Exception:
+            pass
+
+        # Caer a primera voz española que encuentre
+        esp = next((v for v in voices if 'spanish' in v.name.lower()), None)
+        if esp:
+            engine.setProperty('voice', esp.id)
+
+    return engine
 
 def reproducir_palabra(palabra: str = '', pronunciacion: str = None):
     """
@@ -29,7 +53,6 @@ def reproducir_palabra(palabra: str = '', pronunciacion: str = None):
     engine.say(texto)
     engine.runAndWait()
     engine.stop()
-
 
 def reproducir_texto_con_pronunciacion(texto: str, pantalla):
     """
@@ -58,14 +81,12 @@ def reproducir_texto_con_pronunciacion(texto: str, pantalla):
     _hilo_voz = threading.Thread(target=hilo_hablar, daemon=True)
     _hilo_voz.start()
 
-
 def detener_voz():
     """
     Señala que se debe detener la reproducción de voz.
     """
     global _detener_voz
     _detener_voz = True
-
 
 def detectar_voz() -> bool:
     """
